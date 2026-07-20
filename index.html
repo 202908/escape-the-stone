@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Escape the Stone</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="game-panel" aria-label="Escape the Stone game">
+        <canvas id="game" width="1280" height="720" aria-label="Two player stone dodging game. Star uses S, Z, X, C and A to dash. Cloud uses arrow keys and M to dash."></canvas>
+        <div class="hud" aria-hidden="true">
+          <div>
+            <strong>小星星</strong>
+          </div>
+          <div>
+            <strong>雲朵</strong>
+          </div>
+        </div>
+        <button id="restart" class="restart" type="button">重新開始</button>
+      </section>
+    </main>
+    <script src="game.js"></script>
+  </body>
+</html>
