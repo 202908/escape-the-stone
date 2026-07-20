@@ -352,13 +352,40 @@ function hasMoveKey(name) {
   return map[name].some((key) => keys.has(key));
 }
 
+function playerIntent(playerIndex) {
+  if (playerIndex === 0) {
+    return {
+      up: keys.has("keys"),
+      down: keys.has("keyx"),
+      left: keys.has("keyz"),
+      right: keys.has("keyc"),
+      dash: keys.has("keya"),
+    };
+  }
+
+  return {
+    up: keys.has("arrowup"),
+    down: keys.has("arrowdown"),
+    left: keys.has("arrowleft"),
+    right: keys.has("arrowright"),
+    dash: keys.has("keym"),
+  };
+}
+
 function resetSpaceGame(now) {
   state.gameOver = false;
   restartButton.classList.remove("is-visible");
   mini.space = {
-    player: { x: 150, y: 350, r: 24 },
-    rocks: [],
-    orbs: [],
+    players: [
+      { kind: "star", x: 150, y: 260, r: 24, invulnerableUntil: 0 },
+      { kind: "cloud", x: 150, y: 410, r: 26, invulnerableUntil: 0 },
+    ],
+    hearts: 3,
+    rocks: [
+      { x: 720, y: 150, r: 24, speed: 3.2 },
+      { x: 990, y: 450, r: 28, speed: 3.8 },
+    ],
+    orbs: [{ x: 880, y: 300, r: 13, speed: 3 }],
     score: 0,
     lastRock: now,
     lastOrb: now,
@@ -370,13 +397,16 @@ function updateSpaceGame(now) {
   const g = mini.space;
   if (g.over) return;
   const m = boardMetrics();
-  const speed = 5.2;
-  if (hasMoveKey("up")) g.player.y -= speed;
-  if (hasMoveKey("down")) g.player.y += speed;
-  if (hasMoveKey("left")) g.player.x -= speed;
-  if (hasMoveKey("right")) g.player.x += speed;
-  g.player.x = clamp(g.player.x, 38, m.w - 38);
-  g.player.y = clamp(g.player.y, 80, m.h - 46);
+  g.players.forEach((player, index) => {
+    const intent = playerIntent(index);
+    const speed = intent.dash ? 7.2 : 5.2;
+    if (intent.up) player.y -= speed;
+    if (intent.down) player.y += speed;
+    if (intent.left) player.x -= speed;
+    if (intent.right) player.x += speed;
+    player.x = clamp(player.x, 38, m.w - 38);
+    player.y = clamp(player.y, 84, m.h - 48);
+  });
 
   if (now - g.lastRock > 900) {
     g.rocks.push({ x: m.w + 34, y: 90 + Math.random() * (m.h - 150), r: 18 + Math.random() * 17, speed: 3.4 + Math.random() * 2.4 });
@@ -394,13 +424,23 @@ function updateSpaceGame(now) {
   g.score += 0.02;
 
   g.orbs = g.orbs.filter((orb) => {
-    if (distance(g.player, orb) < g.player.r + orb.r) {
+    if (g.players.some((player) => distance(player, orb) < player.r + orb.r)) {
       g.score += 5;
       return false;
     }
     return true;
   });
-  if (g.rocks.some((rock) => distance(g.player, rock) < g.player.r + rock.r - 4)) {
+  g.rocks.forEach((rock) => {
+    g.players.forEach((player) => {
+      if (now > player.invulnerableUntil && distance(player, rock) < player.r + rock.r - 4) {
+        g.hearts -= 1;
+        player.invulnerableUntil = now + 1300;
+        rock.x = -100;
+      }
+    });
+  });
+  g.rocks = g.rocks.filter((rock) => rock.x > -60);
+  if (g.hearts <= 0) {
     g.over = true;
     state.gameOver = true;
     restartButton.classList.add("is-visible");
@@ -417,12 +457,17 @@ function drawSpaceGame(m, now) {
   drawStarField(m, now, 1.8);
   g.orbs.forEach((orb) => drawEnergyOrb(orb.x, orb.y, orb.r, now));
   g.rocks.forEach((rock) => drawStone(rock.x, rock.y, rock.r, rock.r * 0.9));
-  ctx.save();
-  ctx.translate(g.player.x, g.player.y);
-  ctx.scale(0.6, 0.6);
-  drawStar({ fill: "#ffe96f", accent: "#f7a62d" });
-  ctx.restore();
-  drawMiniHud("小星星太空冒險", `能量 ${Math.floor(g.score)}`, "方向鍵 / WASD 移動", m);
+  g.players.forEach((player, index) => {
+    if (now < player.invulnerableUntil && Math.floor(now / 100) % 2 === 0) return;
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.scale(player.kind === "cloud" ? 0.42 : 0.58, player.kind === "cloud" ? 0.42 : 0.58);
+    player.kind === "cloud"
+      ? drawCloud({ fill: "#f8fdff", accent: "#79cfe8" })
+      : drawStar({ fill: "#ffe96f", accent: "#f7a62d" });
+    ctx.restore();
+  });
+  drawMiniHud("小星星太空冒險", `能量 ${Math.floor(g.score)}   ${"♥".repeat(Math.max(0, g.hearts))}`, "星星 S/Z/X/C · 雲朵方向鍵", m);
   if (g.over) drawMiniGameOver(m, "撞到隕石了");
 }
 
@@ -430,16 +475,12 @@ function resetRainbowGame(now) {
   state.gameOver = false;
   restartButton.classList.remove("is-visible");
   mini.rainbow = {
-    player: { x: 110, y: 330, vy: 0, w: 52, h: 36, grounded: false },
-    platforms: [
-      { x: 60, y: 440, w: 180 },
-      { x: 290, y: 365, w: 160 },
-      { x: 520, y: 295, w: 170 },
-      { x: 760, y: 375, w: 160 },
-      { x: 980, y: 310, w: 160 },
+    players: [
+      { kind: "star", x: 120, y: 410, vy: -10, w: 44, h: 44, alive: true },
+      { kind: "cloud", x: 230, y: 410, vy: -10, w: 54, h: 38, alive: true },
     ],
+    platforms: createRainbowPlatforms(),
     score: 0,
-    lastMove: now,
     over: false,
   };
 }
@@ -448,32 +489,75 @@ function updateRainbowGame(now) {
   const g = mini.rainbow;
   if (g.over) return;
   const m = boardMetrics();
-  const p = g.player;
-  if (hasMoveKey("left")) p.x -= 4.8;
-  if (hasMoveKey("right")) p.x += 4.8;
-  if (hasMoveKey("jump") && p.grounded) {
-    p.vy = -12.5;
-    p.grounded = false;
-  }
-  p.vy += 0.52;
-  p.y += p.vy;
-  p.x = clamp(p.x, 20, m.w - 60);
-  p.grounded = false;
   g.platforms.forEach((platform) => {
-    const falling = p.vy >= 0;
-    const feet = p.y + p.h;
-    if (falling && p.x + p.w > platform.x && p.x < platform.x + platform.w && feet > platform.y && feet < platform.y + 22) {
-      p.y = platform.y - p.h;
-      p.vy = 0;
-      p.grounded = true;
-      g.score = Math.max(g.score, Math.floor((m.h - platform.y) / 10));
-    }
+    if (!platform.moving) return;
+    platform.x += platform.vx;
+    if (platform.x < 30 || platform.x + platform.w > m.w - 30) platform.vx *= -1;
   });
-  if (p.y > m.h + 80) {
+
+  g.players.forEach((player, index) => {
+    if (!player.alive) return;
+    const intent = playerIntent(index);
+    if (intent.left) player.x -= 5;
+    if (intent.right) player.x += 5;
+    player.vy += 0.42;
+    player.y += player.vy;
+    if (player.x < -player.w) player.x = m.w;
+    if (player.x > m.w) player.x = -player.w;
+
+    g.platforms.forEach((platform) => {
+      const falling = player.vy >= 0;
+      const feet = player.y + player.h;
+      if (falling && player.x + player.w > platform.x && player.x < platform.x + platform.w && feet > platform.y && feet < platform.y + 24) {
+        player.y = platform.y - player.h;
+        player.vy = -12.2;
+      }
+    });
+
+    if (player.y > m.h + 90) player.alive = false;
+  });
+
+  const highest = Math.min(...g.players.filter((player) => player.alive).map((player) => player.y));
+  if (Number.isFinite(highest) && highest < m.h * 0.34) {
+    const shift = m.h * 0.34 - highest;
+    g.players.forEach((player) => player.y += shift);
+    g.platforms.forEach((platform) => platform.y += shift);
+    g.score += Math.floor(shift);
+  }
+
+  g.platforms = g.platforms.filter((platform) => platform.y < m.h + 40);
+  while (g.platforms.length < 9) {
+    const topY = Math.min(...g.platforms.map((platform) => platform.y));
+    g.platforms.push(randomRainbowPlatform(topY - 84, m.w, g.score));
+  }
+
+  if (g.players.every((player) => !player.alive)) {
     g.over = true;
     state.gameOver = true;
     restartButton.classList.add("is-visible");
   }
+}
+
+function createRainbowPlatforms() {
+  return [
+    { x: 70, y: 470, w: 230, moving: false, vx: 0 },
+    { x: 340, y: 385, w: 170, moving: false, vx: 0 },
+    { x: 610, y: 310, w: 160, moving: true, vx: 1.4 },
+    { x: 850, y: 225, w: 160, moving: false, vx: 0 },
+    { x: 520, y: 140, w: 150, moving: true, vx: -1.7 },
+    { x: 250, y: 55, w: 160, moving: false, vx: 0 },
+  ];
+}
+
+function randomRainbowPlatform(y, width, score) {
+  const moving = score > 180 && Math.random() > 0.45;
+  return {
+    x: 40 + Math.random() * Math.max(1, width - 220),
+    y,
+    w: 128 + Math.random() * 58,
+    moving,
+    vx: moving ? (Math.random() > 0.5 ? 1.5 : -1.5) : 0,
+  };
 }
 
 function drawRainbowGame(m, now) {
@@ -485,12 +569,20 @@ function drawRainbowGame(m, now) {
   ctx.fillRect(0, 0, m.w, m.h);
   drawSoftClouds(m, now);
   g.platforms.forEach((platform, index) => drawRainbowPlatform(platform, index));
-  ctx.save();
-  ctx.translate(g.player.x + 26, g.player.y + 18);
-  ctx.scale(0.45, 0.45);
-  drawCloud({ fill: "#f8fdff", accent: "#79cfe8" });
-  ctx.restore();
-  drawMiniHud("彩虹雲朵跳跳", `高度 ${g.score}`, "方向鍵 / WASD 移動，上鍵跳", m);
+  g.players.forEach((player) => {
+    if (!player.alive) return;
+    ctx.save();
+    ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
+    if (player.kind === "cloud") {
+      ctx.scale(0.42, 0.42);
+      drawCloud({ fill: "#f8fdff", accent: "#79cfe8" });
+    } else {
+      ctx.scale(0.44, 0.44);
+      drawStar({ fill: "#ffe96f", accent: "#f7a62d" });
+    }
+    ctx.restore();
+  });
+  drawMiniHud("彩虹雲朵跳跳", `高度 ${g.score}`, "星星 Z/C · 雲朵左右方向鍵，自動往上跳", m);
   if (g.over) drawMiniGameOver(m, "掉下雲層了");
 }
 
@@ -499,7 +591,7 @@ function resetMoonGame(now) {
   restartButton.classList.remove("is-visible");
   mini.moon = {
     player: { col: 0, row: 0, lastMove: 0 },
-    candies: new Set(["2,0", "4,2", "1,3", "5,4"]),
+    candies: new Set(["2,0", "5,1", "7,2", "1,4", "4,5", "7,5"]),
     score: 0,
     over: false,
   };
@@ -515,8 +607,8 @@ function updateMoonGame(now) {
   if (hasMoveKey("left")) dx = -1;
   if (hasMoveKey("right")) dx = 1;
   if (dx === 0 && dy === 0) return;
-  const nextCol = clamp(g.player.col + dx, 0, 5);
-  const nextRow = clamp(g.player.row + dy, 0, 4);
+  const nextCol = clamp(g.player.col + dx, 0, 7);
+  const nextRow = clamp(g.player.row + dy, 0, 5);
   if (isMoonWall(g.player.col, g.player.row, nextCol, nextRow)) return;
   g.player.col = nextCol;
   g.player.row = nextRow;
@@ -554,7 +646,7 @@ function drawMoonGame(m, now) {
   ctx.scale(0.34, 0.34);
   drawStar({ fill: "#ffe96f", accent: "#f7a62d" });
   ctx.restore();
-  drawMiniHud("月亮糖果迷宮", `糖果 ${g.score}/4`, "方向鍵 / WASD 移動", m);
+  drawMiniHud("月亮糖果迷宮", `糖果 ${g.score}/6`, "方向鍵 / WASD 移動", m);
   if (g.over) drawMiniGameOver(m, "糖果找齊了");
 }
 
@@ -623,9 +715,9 @@ function drawRainbowPlatform(platform, index) {
 }
 
 function moonGridMetrics(m) {
-  const cell = Math.min(m.w * 0.1, m.h * 0.13);
-  const width = cell * 6;
-  const height = cell * 5;
+  const cell = Math.min(m.w * 0.078, m.h * 0.105);
+  const width = cell * 8;
+  const height = cell * 6;
   return { cell, x: (m.w - width) / 2, y: (m.h - height) / 2 + 30 };
 }
 
@@ -634,7 +726,13 @@ function moonCellCenter(grid, col, row) {
 }
 
 function isMoonWall(fromCol, fromRow, toCol, toRow) {
-  const walls = new Set(["1,0-1,1", "2,1-3,1", "3,2-3,3", "0,2-1,2", "4,3-5,3", "2,3-2,4"]);
+  const walls = new Set([
+    "1,0-1,1", "2,0-3,0", "4,0-4,1", "6,0-6,1",
+    "0,1-1,1", "2,1-2,2", "3,1-4,1", "5,1-5,2",
+    "1,2-2,2", "3,2-3,3", "5,2-6,2", "7,2-7,3",
+    "0,3-1,3", "2,3-2,4", "4,3-5,3", "6,3-6,4",
+    "1,4-2,4", "3,4-3,5", "5,4-6,4", "7,4-7,5",
+  ]);
   const a = `${fromCol},${fromRow}-${toCol},${toRow}`;
   const b = `${toCol},${toRow}-${fromCol},${fromRow}`;
   return walls.has(a) || walls.has(b);
@@ -642,24 +740,30 @@ function isMoonWall(fromCol, fromRow, toCol, toRow) {
 
 function drawMoonMaze(grid) {
   ctx.fillStyle = "rgba(255, 255, 255, 0.11)";
-  ctx.fillRect(grid.x, grid.y, grid.cell * 6, grid.cell * 5);
+  ctx.fillRect(grid.x, grid.y, grid.cell * 8, grid.cell * 6);
   ctx.strokeStyle = "rgba(255, 241, 168, 0.7)";
   ctx.lineWidth = 3;
-  for (let col = 0; col <= 6; col += 1) {
+  for (let col = 0; col <= 8; col += 1) {
     ctx.beginPath();
     ctx.moveTo(grid.x + col * grid.cell, grid.y);
-    ctx.lineTo(grid.x + col * grid.cell, grid.y + grid.cell * 5);
+    ctx.lineTo(grid.x + col * grid.cell, grid.y + grid.cell * 6);
     ctx.stroke();
   }
-  for (let row = 0; row <= 5; row += 1) {
+  for (let row = 0; row <= 6; row += 1) {
     ctx.beginPath();
     ctx.moveTo(grid.x, grid.y + row * grid.cell);
-    ctx.lineTo(grid.x + grid.cell * 6, grid.y + row * grid.cell);
+    ctx.lineTo(grid.x + grid.cell * 8, grid.y + row * grid.cell);
     ctx.stroke();
   }
   ctx.strokeStyle = "#ff9ccc";
   ctx.lineWidth = 8;
-  [[1, 0, 1, 1], [2, 1, 3, 1], [3, 2, 3, 3], [0, 2, 1, 2], [4, 3, 5, 3], [2, 3, 2, 4]].forEach(([a, b, c, d]) => {
+  [
+    [1, 0, 1, 1], [2, 0, 3, 0], [4, 0, 4, 1], [6, 0, 6, 1],
+    [0, 1, 1, 1], [2, 1, 2, 2], [3, 1, 4, 1], [5, 1, 5, 2],
+    [1, 2, 2, 2], [3, 2, 3, 3], [5, 2, 6, 2], [7, 2, 7, 3],
+    [0, 3, 1, 3], [2, 3, 2, 4], [4, 3, 5, 3], [6, 3, 6, 4],
+    [1, 4, 2, 4], [3, 4, 3, 5], [5, 4, 6, 4], [7, 4, 7, 5],
+  ].forEach(([a, b, c, d]) => {
     const start = moonCellCenter(grid, a, b);
     const end = moonCellCenter(grid, c, d);
     ctx.beginPath();
