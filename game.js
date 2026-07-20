@@ -155,11 +155,11 @@ function update(now) {
 
 function handleInput(now) {
   movePlayer(state.players[0], now, {
-    up: "s",
-    down: "x",
-    left: "z",
-    right: "c",
-    dash: "a",
+    up: "keys",
+    down: "keyx",
+    left: "keyz",
+    right: "keyc",
+    dash: "keya",
     minCol: 0,
     maxCol: COLS - 1,
   });
@@ -168,7 +168,7 @@ function handleInput(now) {
     down: "arrowdown",
     left: "arrowleft",
     right: "arrowright",
-    dash: "m",
+    dash: "keym",
     minCol: 0,
     maxCol: COLS - 1,
   });
@@ -430,15 +430,25 @@ function drawGameOver(m) {
   ctx.fillText(`你們一起躲過 ${state.score} 波石頭`, m.w / 2, m.h / 2 + 20);
 }
 
-window.addEventListener("keydown", (event) => {
+function rememberKey(event) {
   keys.add(event.key.toLowerCase());
-  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
+  keys.add(event.code.toLowerCase());
+}
+
+function forgetKey(event) {
+  keys.delete(event.key.toLowerCase());
+  keys.delete(event.code.toLowerCase());
+}
+
+window.addEventListener("keydown", (event) => {
+  rememberKey(event);
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key) || ["KeyS", "KeyZ", "KeyX", "KeyC", "KeyA", "KeyM"].includes(event.code)) {
     event.preventDefault();
   }
 });
 
 window.addEventListener("keyup", (event) => {
-  keys.delete(event.key.toLowerCase());
+  forgetKey(event);
 });
 
 window.addEventListener("resize", resizeCanvas);
