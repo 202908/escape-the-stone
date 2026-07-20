@@ -72,8 +72,10 @@ function startLoading() {
 function startStoneGame() {
   state.started = true;
   state.activeGame = "stone";
+  menuMessage.textContent = "";
   showScreen("game");
   resetGame();
+  focusGameCanvas();
 }
 
 function startMiniGame(gameName) {
@@ -81,11 +83,13 @@ function startMiniGame(gameName) {
   state.activeGame = gameName;
   state.gameOver = false;
   keys.clear();
+  menuMessage.textContent = "";
   restartButton.classList.remove("is-visible");
   showScreen("game");
   if (gameName === "space") resetSpaceGame(performance.now());
   if (gameName === "rainbow") resetRainbowGame(performance.now());
   if (gameName === "moon") resetMoonGame(performance.now());
+  focusGameCanvas();
 }
 
 function returnToMenu() {
@@ -95,6 +99,10 @@ function returnToMenu() {
   keys.clear();
   restartButton.classList.remove("is-visible");
   showScreen("menu");
+}
+
+function focusGameCanvas() {
+  requestAnimationFrame(() => canvas.focus({ preventScroll: true }));
 }
 
 function createPlayer(kind, col, row, fill, accent) {
