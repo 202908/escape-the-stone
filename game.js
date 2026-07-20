@@ -4,8 +4,12 @@ const restartButton = document.getElementById("restart");
 const startButton = document.getElementById("start-game");
 const lobbyScreen = document.getElementById("lobby-screen");
 const loadingScreen = document.getElementById("loading-screen");
+const gameMenuScreen = document.getElementById("game-menu-screen");
 const loadingPercent = document.getElementById("loading-percent");
+const menuMessage = document.getElementById("menu-message");
 const hud = document.querySelector(".hud");
+const backMenuButton = document.getElementById("back-menu");
+const gameCards = document.querySelectorAll(".game-card");
 
 const COLS = 12;
 const ROWS = 8;
@@ -33,8 +37,10 @@ const state = {
 function showScreen(name) {
   lobbyScreen.hidden = name !== "lobby";
   loadingScreen.hidden = name !== "loading";
+  gameMenuScreen.hidden = name !== "menu";
   canvas.classList.toggle("is-hidden", name !== "game");
   hud.classList.toggle("is-hidden", name !== "game");
+  backMenuButton.classList.toggle("is-hidden", name !== "game");
 }
 
 function startLoading() {
@@ -50,12 +56,24 @@ function startLoading() {
       return;
     }
 
-    state.started = true;
-    showScreen("game");
-    resetGame();
+    showScreen("menu");
   }
 
   requestAnimationFrame(tick);
+}
+
+function startStoneGame() {
+  state.started = true;
+  showScreen("game");
+  resetGame();
+}
+
+function returnToMenu() {
+  state.started = false;
+  state.gameOver = false;
+  keys.clear();
+  restartButton.classList.remove("is-visible");
+  showScreen("menu");
 }
 
 function createPlayer(kind, col, row, fill, accent) {
@@ -489,6 +507,17 @@ window.addEventListener("keyup", (event) => {
 window.addEventListener("resize", resizeCanvas);
 restartButton.addEventListener("click", resetGame);
 startButton.addEventListener("click", startLoading);
+backMenuButton.addEventListener("click", returnToMenu);
+gameCards.forEach((card) => {
+  card.addEventListener("click", () => {
+    if (card.dataset.game === "stone") {
+      startStoneGame();
+      return;
+    }
+
+    menuMessage.textContent = `${card.querySelector("strong").textContent} 還在雲朵工廠準備中`;
+  });
+});
 
 resizeCanvas();
 showScreen("lobby");

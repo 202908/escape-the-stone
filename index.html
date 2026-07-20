@@ -34,6 +34,39 @@
           <p>Loading <span id="loading-percent">0%</span></p>
         </section>
 
+        <section id="game-menu-screen" class="screen game-menu-screen" aria-label="Game menu" hidden>
+          <div class="dream-cloud cloud-one" aria-hidden="true"></div>
+          <div class="dream-cloud cloud-two" aria-hidden="true"></div>
+          <div class="dream-cloud cloud-three" aria-hidden="true"></div>
+          <header class="menu-header">
+            <p>Cloud Library</p>
+            <h2>選一個遊戲</h2>
+          </header>
+          <div class="game-grid">
+            <button class="game-card is-ready" type="button" data-game="stone">
+              <span class="card-icon stone-icon" aria-hidden="true"></span>
+              <strong>雲朵星星躲石頭</strong>
+              <small>雙人一起躲落石</small>
+            </button>
+            <button class="game-card" type="button" data-game="space">
+              <span class="card-icon rocket-icon" aria-hidden="true"></span>
+              <strong>小星星太空冒險</strong>
+              <small>準備中</small>
+            </button>
+            <button class="game-card" type="button" data-game="rainbow">
+              <span class="card-icon rainbow-icon" aria-hidden="true"></span>
+              <strong>彩虹雲朵跳跳</strong>
+              <small>準備中</small>
+            </button>
+            <button class="game-card" type="button" data-game="moon">
+              <span class="card-icon moon-icon" aria-hidden="true"></span>
+              <strong>月亮糖果迷宮</strong>
+              <small>準備中</small>
+            </button>
+          </div>
+          <p id="menu-message" class="menu-message" role="status" aria-live="polite"></p>
+        </section>
+
         <canvas id="game" class="is-hidden" width="1280" height="720" aria-label="Two player stone dodging game. Star uses S, Z, X, C and A to dash. Cloud uses arrow keys and M to dash."></canvas>
         <div class="hud" aria-hidden="true">
           <div>
@@ -43,6 +76,7 @@
             <strong>雲朵</strong>
           </div>
         </div>
+        <button id="back-menu" class="back-menu is-hidden" type="button">回到選單</button>
         <button id="restart" class="restart" type="button">重新開始</button>
       </section>
     </main>
