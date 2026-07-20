@@ -1,6 +1,11 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const restartButton = document.getElementById("restart");
+const startButton = document.getElementById("start-game");
+const lobbyScreen = document.getElementById("lobby-screen");
+const loadingScreen = document.getElementById("loading-screen");
+const loadingPercent = document.getElementById("loading-percent");
+const hud = document.querySelector(".hud");
 
 const COLS = 12;
 const ROWS = 8;
@@ -13,6 +18,7 @@ const DASH_COOLDOWN = 900;
 const keys = new Set();
 
 const state = {
+  started: false,
   phase: "calm",
   phaseStart: performance.now(),
   danger: new Set(),
@@ -23,6 +29,34 @@ const state = {
     createPlayer("cloud", 9, 4, "#e8f8ff", "#7ecce0"),
   ],
 };
+
+function showScreen(name) {
+  lobbyScreen.hidden = name !== "lobby";
+  loadingScreen.hidden = name !== "loading";
+  canvas.classList.toggle("is-hidden", name !== "game");
+  hud.classList.toggle("is-hidden", name !== "game");
+}
+
+function startLoading() {
+  showScreen("loading");
+  const loadingStarted = performance.now();
+  const loadingDuration = 3600;
+
+  function tick(now) {
+    const progress = clamp((now - loadingStarted) / loadingDuration, 0, 1);
+    loadingPercent.textContent = `${Math.floor(progress * 100)}%`;
+    if (progress < 1) {
+      requestAnimationFrame(tick);
+      return;
+    }
+
+    state.started = true;
+    showScreen("game");
+    resetGame();
+  }
+
+  requestAnimationFrame(tick);
+}
 
 function createPlayer(kind, col, row, fill, accent) {
   return {
@@ -67,6 +101,7 @@ function shuffle(items) {
 }
 
 function resetGame() {
+  keys.clear();
   state.phase = "calm";
   state.phaseStart = performance.now();
   state.danger = new Set();
@@ -122,7 +157,7 @@ function lerp(a, b, t) {
 }
 
 function update(now) {
-  if (!state.gameOver) {
+  if (state.started && !state.gameOver) {
     handleInput(now);
     state.players.forEach((player) => {
       player.x = lerp(player.x, player.targetCol, 0.24);
@@ -453,7 +488,9 @@ window.addEventListener("keyup", (event) => {
 
 window.addEventListener("resize", resizeCanvas);
 restartButton.addEventListener("click", resetGame);
+startButton.addEventListener("click", startLoading);
 
 resizeCanvas();
+showScreen("lobby");
 resetGame();
 requestAnimationFrame(update);

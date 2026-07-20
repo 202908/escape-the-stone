@@ -9,7 +9,32 @@
   <body>
     <main class="shell">
       <section class="game-panel" aria-label="Escape the Stone game">
-        <canvas id="game" width="1280" height="720" aria-label="Two player stone dodging game. Star uses S, Z, X, C and A to dash. Cloud uses arrow keys and M to dash."></canvas>
+        <section id="lobby-screen" class="screen lobby-screen" aria-label="Game lobby">
+          <h1>雲朵星星遊戲</h1>
+          <button id="start-game" class="start-button" type="button">開始遊戲</button>
+          <div class="mascot-stage" aria-hidden="true">
+            <div class="lobby-star">
+              <span></span>
+            </div>
+            <div class="lobby-cloud">
+              <span></span>
+            </div>
+          </div>
+        </section>
+
+        <section id="loading-screen" class="screen loading-screen" aria-label="Loading game" hidden>
+          <div class="loading-badge" aria-hidden="true">
+            <div class="tiny-cloud"></div>
+          </div>
+          <div class="cloud-loader" aria-hidden="true">
+            <div class="tiny-cloud loader-cloud"></div>
+            <div class="tiny-cloud loader-cloud"></div>
+            <div class="tiny-cloud loader-cloud"></div>
+          </div>
+          <p>Loading <span id="loading-percent">0%</span></p>
+        </section>
+
+        <canvas id="game" class="is-hidden" width="1280" height="720" aria-label="Two player stone dodging game. Star uses S, Z, X, C and A to dash. Cloud uses arrow keys and M to dash."></canvas>
         <div class="hud" aria-hidden="true">
           <div>
             <strong>小星星</strong>
