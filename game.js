@@ -10,6 +10,7 @@ const menuMessage = document.getElementById("menu-message");
 const hud = document.querySelector(".hud");
 const backMenuButton = document.getElementById("back-menu");
 const gameCards = document.querySelectorAll(".game-card");
+const touchControls = document.getElementById("touch-controls");
 
 const COLS = 12;
 const ROWS = 8;
@@ -48,6 +49,7 @@ function showScreen(name) {
   canvas.classList.toggle("is-hidden", name !== "game");
   hud.classList.toggle("is-hidden", name !== "game" || state.activeGame !== "stone");
   backMenuButton.classList.toggle("is-hidden", name !== "game");
+  touchControls.classList.toggle("is-hidden", name !== "game");
 }
 
 function startLoading() {
@@ -931,6 +933,24 @@ window.addEventListener("resize", resizeCanvas);
 restartButton.addEventListener("click", resetGame);
 startButton.addEventListener("click", startLoading);
 backMenuButton.addEventListener("click", returnToMenu);
+touchControls.querySelectorAll("button").forEach((button) => {
+  const key = button.dataset.holdKey;
+  const hold = (event) => {
+    event.preventDefault();
+    keys.add(key);
+    button.classList.add("is-held");
+    focusGameCanvas();
+  };
+  const release = (event) => {
+    event.preventDefault();
+    keys.delete(key);
+    button.classList.remove("is-held");
+  };
+  button.addEventListener("pointerdown", hold);
+  button.addEventListener("pointerup", release);
+  button.addEventListener("pointercancel", release);
+  button.addEventListener("pointerleave", release);
+});
 gameCards.forEach((card) => {
   card.addEventListener("click", () => {
     if (card.dataset.game === "stone") {

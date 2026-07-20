@@ -663,6 +663,60 @@ canvas.is-hidden {
   display: none;
 }
 
+.touch-controls {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(3, 42px);
+  grid-template-rows: repeat(2, 42px);
+  gap: 6px;
+}
+
+.touch-controls.is-hidden {
+  display: none;
+}
+
+.touch-controls button {
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #17212b;
+  font: inherit;
+  font-size: 22px;
+  font-weight: 900;
+  cursor: pointer;
+  touch-action: none;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+}
+
+.touch-controls button:active,
+.touch-controls button.is-held {
+  background: #fff2a8;
+  transform: translateY(1px);
+}
+
+.touch-controls button:nth-child(1) {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.touch-controls button:nth-child(2) {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.touch-controls button:nth-child(3) {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.touch-controls button:nth-child(4) {
+  grid-column: 3;
+  grid-row: 2;
+}
+
 @media (max-width: 720px) {
   .shell {
     padding: 10px;
@@ -693,5 +747,12 @@ canvas.is-hidden {
     width: 46px;
     height: 46px;
     transform: scale(0.72);
+  }
+
+  .touch-controls {
+    right: 10px;
+    bottom: 10px;
+    grid-template-columns: repeat(3, 38px);
+    grid-template-rows: repeat(2, 38px);
   }
 }
