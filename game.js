@@ -23,6 +23,7 @@ const keys = new Set();
 
 const state = {
   started: false,
+  activeGame: null,
   phase: "calm",
   phaseStart: performance.now(),
   danger: new Set(),
@@ -34,12 +35,18 @@ const state = {
   ],
 };
 
+const mini = {
+  space: {},
+  rainbow: {},
+  moon: {},
+};
+
 function showScreen(name) {
   lobbyScreen.hidden = name !== "lobby";
   loadingScreen.hidden = name !== "loading";
   gameMenuScreen.hidden = name !== "menu";
   canvas.classList.toggle("is-hidden", name !== "game");
-  hud.classList.toggle("is-hidden", name !== "game");
+  hud.classList.toggle("is-hidden", name !== "game" || state.activeGame !== "stone");
   backMenuButton.classList.toggle("is-hidden", name !== "game");
 }
 
@@ -64,12 +71,26 @@ function startLoading() {
 
 function startStoneGame() {
   state.started = true;
+  state.activeGame = "stone";
   showScreen("game");
   resetGame();
 }
 
+function startMiniGame(gameName) {
+  state.started = true;
+  state.activeGame = gameName;
+  state.gameOver = false;
+  keys.clear();
+  restartButton.classList.remove("is-visible");
+  showScreen("game");
+  if (gameName === "space") resetSpaceGame(performance.now());
+  if (gameName === "rainbow") resetRainbowGame(performance.now());
+  if (gameName === "moon") resetMoonGame(performance.now());
+}
+
 function returnToMenu() {
   state.started = false;
+  state.activeGame = null;
   state.gameOver = false;
   keys.clear();
   restartButton.classList.remove("is-visible");
@@ -120,6 +141,19 @@ function shuffle(items) {
 
 function resetGame() {
   keys.clear();
+  if (state.activeGame === "space") {
+    resetSpaceGame(performance.now());
+    return;
+  }
+  if (state.activeGame === "rainbow") {
+    resetRainbowGame(performance.now());
+    return;
+  }
+  if (state.activeGame === "moon") {
+    resetMoonGame(performance.now());
+    return;
+  }
+
   state.phase = "calm";
   state.phaseStart = performance.now();
   state.danger = new Set();
@@ -175,7 +209,7 @@ function lerp(a, b, t) {
 }
 
 function update(now) {
-  if (state.started && !state.gameOver) {
+  if (state.started && state.activeGame === "stone" && !state.gameOver) {
     handleInput(now);
     state.players.forEach((player) => {
       player.x = lerp(player.x, player.targetCol, 0.24);
@@ -200,10 +234,18 @@ function update(now) {
       state.phase = "rest";
       state.phaseStart = now;
     }
+  } else if (state.started && state.activeGame !== "stone") {
+    updateMiniGame(now);
   }
 
   draw(now);
   requestAnimationFrame(update);
+}
+
+function updateMiniGame(now) {
+  if (state.activeGame === "space") updateSpaceGame(now);
+  if (state.activeGame === "rainbow") updateRainbowGame(now);
+  if (state.activeGame === "moon") updateMoonGame(now);
 }
 
 function handleInput(now) {
@@ -268,11 +310,384 @@ function clamp(value, min, max) {
 function draw(now) {
   const m = boardMetrics();
   ctx.clearRect(0, 0, m.w, m.h);
+  if (!state.started) return;
+  if (state.activeGame === "space") {
+    drawSpaceGame(m, now);
+    return;
+  }
+  if (state.activeGame === "rainbow") {
+    drawRainbowGame(m, now);
+    return;
+  }
+  if (state.activeGame === "moon") {
+    drawMoonGame(m, now);
+    return;
+  }
+
   drawSky(m);
   drawBoard(now);
   drawCharacters(now);
   drawScore(m, now);
   if (state.gameOver) drawGameOver(m);
+}
+
+function hasMoveKey(name) {
+  const map = {
+    up: ["arrowup", "keyw", "keys"],
+    down: ["arrowdown", "keyx"],
+    left: ["arrowleft", "keya", "keyz"],
+    right: ["arrowright", "keyd", "keyc"],
+    jump: ["arrowup", "space", "keyw", "keys"],
+  };
+  return map[name].some((key) => keys.has(key));
+}
+
+function resetSpaceGame(now) {
+  state.gameOver = false;
+  restartButton.classList.remove("is-visible");
+  mini.space = {
+    player: { x: 150, y: 350, r: 24 },
+    rocks: [],
+    orbs: [],
+    score: 0,
+    lastRock: now,
+    lastOrb: now,
+    over: false,
+  };
+}
+
+function updateSpaceGame(now) {
+  const g = mini.space;
+  if (g.over) return;
+  const m = boardMetrics();
+  const speed = 5.2;
+  if (hasMoveKey("up")) g.player.y -= speed;
+  if (hasMoveKey("down")) g.player.y += speed;
+  if (hasMoveKey("left")) g.player.x -= speed;
+  if (hasMoveKey("right")) g.player.x += speed;
+  g.player.x = clamp(g.player.x, 38, m.w - 38);
+  g.player.y = clamp(g.player.y, 80, m.h - 46);
+
+  if (now - g.lastRock > 900) {
+    g.rocks.push({ x: m.w + 34, y: 90 + Math.random() * (m.h - 150), r: 18 + Math.random() * 17, speed: 3.4 + Math.random() * 2.4 });
+    g.lastRock = now;
+  }
+  if (now - g.lastOrb > 1600) {
+    g.orbs.push({ x: m.w + 24, y: 100 + Math.random() * (m.h - 170), r: 13, speed: 3 });
+    g.lastOrb = now;
+  }
+
+  g.rocks.forEach((rock) => rock.x -= rock.speed);
+  g.orbs.forEach((orb) => orb.x -= orb.speed);
+  g.rocks = g.rocks.filter((rock) => rock.x > -60);
+  g.orbs = g.orbs.filter((orb) => orb.x > -40);
+  g.score += 0.02;
+
+  g.orbs = g.orbs.filter((orb) => {
+    if (distance(g.player, orb) < g.player.r + orb.r) {
+      g.score += 5;
+      return false;
+    }
+    return true;
+  });
+  if (g.rocks.some((rock) => distance(g.player, rock) < g.player.r + rock.r - 4)) {
+    g.over = true;
+    state.gameOver = true;
+    restartButton.classList.add("is-visible");
+  }
+}
+
+function drawSpaceGame(m, now) {
+  const g = mini.space;
+  const gradient = ctx.createLinearGradient(0, 0, 0, m.h);
+  gradient.addColorStop(0, "#17213d");
+  gradient.addColorStop(1, "#090d1a");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, m.w, m.h);
+  drawStarField(m, now, 1.8);
+  g.orbs.forEach((orb) => drawEnergyOrb(orb.x, orb.y, orb.r, now));
+  g.rocks.forEach((rock) => drawStone(rock.x, rock.y, rock.r, rock.r * 0.9));
+  ctx.save();
+  ctx.translate(g.player.x, g.player.y);
+  ctx.scale(0.6, 0.6);
+  drawStar({ fill: "#ffe96f", accent: "#f7a62d" });
+  ctx.restore();
+  drawMiniHud("小星星太空冒險", `能量 ${Math.floor(g.score)}`, "方向鍵 / WASD 移動", m);
+  if (g.over) drawMiniGameOver(m, "撞到隕石了");
+}
+
+function resetRainbowGame(now) {
+  state.gameOver = false;
+  restartButton.classList.remove("is-visible");
+  mini.rainbow = {
+    player: { x: 110, y: 330, vy: 0, w: 52, h: 36, grounded: false },
+    platforms: [
+      { x: 60, y: 440, w: 180 },
+      { x: 290, y: 365, w: 160 },
+      { x: 520, y: 295, w: 170 },
+      { x: 760, y: 375, w: 160 },
+      { x: 980, y: 310, w: 160 },
+    ],
+    score: 0,
+    lastMove: now,
+    over: false,
+  };
+}
+
+function updateRainbowGame(now) {
+  const g = mini.rainbow;
+  if (g.over) return;
+  const m = boardMetrics();
+  const p = g.player;
+  if (hasMoveKey("left")) p.x -= 4.8;
+  if (hasMoveKey("right")) p.x += 4.8;
+  if (hasMoveKey("jump") && p.grounded) {
+    p.vy = -12.5;
+    p.grounded = false;
+  }
+  p.vy += 0.52;
+  p.y += p.vy;
+  p.x = clamp(p.x, 20, m.w - 60);
+  p.grounded = false;
+  g.platforms.forEach((platform) => {
+    const falling = p.vy >= 0;
+    const feet = p.y + p.h;
+    if (falling && p.x + p.w > platform.x && p.x < platform.x + platform.w && feet > platform.y && feet < platform.y + 22) {
+      p.y = platform.y - p.h;
+      p.vy = 0;
+      p.grounded = true;
+      g.score = Math.max(g.score, Math.floor((m.h - platform.y) / 10));
+    }
+  });
+  if (p.y > m.h + 80) {
+    g.over = true;
+    state.gameOver = true;
+    restartButton.classList.add("is-visible");
+  }
+}
+
+function drawRainbowGame(m, now) {
+  const g = mini.rainbow;
+  const gradient = ctx.createLinearGradient(0, 0, 0, m.h);
+  gradient.addColorStop(0, "#9ddfff");
+  gradient.addColorStop(1, "#fff1fb");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, m.w, m.h);
+  drawSoftClouds(m, now);
+  g.platforms.forEach((platform, index) => drawRainbowPlatform(platform, index));
+  ctx.save();
+  ctx.translate(g.player.x + 26, g.player.y + 18);
+  ctx.scale(0.45, 0.45);
+  drawCloud({ fill: "#f8fdff", accent: "#79cfe8" });
+  ctx.restore();
+  drawMiniHud("彩虹雲朵跳跳", `高度 ${g.score}`, "方向鍵 / WASD 移動，上鍵跳", m);
+  if (g.over) drawMiniGameOver(m, "掉下雲層了");
+}
+
+function resetMoonGame(now) {
+  state.gameOver = false;
+  restartButton.classList.remove("is-visible");
+  mini.moon = {
+    player: { col: 0, row: 0, lastMove: 0 },
+    candies: new Set(["2,0", "4,2", "1,3", "5,4"]),
+    score: 0,
+    over: false,
+  };
+}
+
+function updateMoonGame(now) {
+  const g = mini.moon;
+  if (g.over || now - g.player.lastMove < 150) return;
+  let dx = 0;
+  let dy = 0;
+  if (hasMoveKey("up")) dy = -1;
+  if (hasMoveKey("down")) dy = 1;
+  if (hasMoveKey("left")) dx = -1;
+  if (hasMoveKey("right")) dx = 1;
+  if (dx === 0 && dy === 0) return;
+  const nextCol = clamp(g.player.col + dx, 0, 5);
+  const nextRow = clamp(g.player.row + dy, 0, 4);
+  if (isMoonWall(g.player.col, g.player.row, nextCol, nextRow)) return;
+  g.player.col = nextCol;
+  g.player.row = nextRow;
+  g.player.lastMove = now;
+  const key = `${nextCol},${nextRow}`;
+  if (g.candies.has(key)) {
+    g.candies.delete(key);
+    g.score += 1;
+  }
+  if (g.candies.size === 0) {
+    g.over = true;
+    state.gameOver = true;
+    restartButton.classList.add("is-visible");
+  }
+}
+
+function drawMoonGame(m, now) {
+  const g = mini.moon;
+  const gradient = ctx.createLinearGradient(0, 0, 0, m.h);
+  gradient.addColorStop(0, "#26335f");
+  gradient.addColorStop(1, "#151a38");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, m.w, m.h);
+  drawStarField(m, now, 0.7);
+  const grid = moonGridMetrics(m);
+  drawMoonMaze(grid);
+  g.candies.forEach((key) => {
+    const [col, row] = key.split(",").map(Number);
+    const c = moonCellCenter(grid, col, row);
+    drawCandy(c.x, c.y, grid.cell * 0.18);
+  });
+  const p = moonCellCenter(grid, g.player.col, g.player.row);
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.scale(0.34, 0.34);
+  drawStar({ fill: "#ffe96f", accent: "#f7a62d" });
+  ctx.restore();
+  drawMiniHud("月亮糖果迷宮", `糖果 ${g.score}/4`, "方向鍵 / WASD 移動", m);
+  if (g.over) drawMiniGameOver(m, "糖果找齊了");
+}
+
+function distance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function drawStarField(m, now, speed) {
+  ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
+  for (let i = 0; i < 70; i += 1) {
+    const x = (i * 83 - now * 0.015 * speed) % m.w;
+    const y = 30 + ((i * 47) % Math.max(1, m.h - 80));
+    ctx.globalAlpha = 0.28 + (i % 4) * 0.12;
+    ctx.fillRect((x + m.w) % m.w, y, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawEnergyOrb(x, y, r, now) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(now / 450);
+  ctx.fillStyle = "#9cf4ff";
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i += 1) {
+    const angle = (i * Math.PI) / 4;
+    const radius = i % 2 === 0 ? r : r * 0.45;
+    const px = Math.cos(angle) * radius;
+    const py = Math.sin(angle) * radius;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawSoftClouds(m, now) {
+  ctx.fillStyle = "rgba(255, 255, 255, 0.58)";
+  for (let i = 0; i < 5; i += 1) {
+    const x = ((i * 280 + now * 0.012) % (m.w + 240)) - 120;
+    const y = 90 + (i % 3) * 115;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 74, 28, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + 48, y - 15, 54, 38, 0, 0, Math.PI * 2);
+    ctx.ellipse(x - 42, y - 8, 46, 32, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawRainbowPlatform(platform, index) {
+  const colors = ["#ff95bf", "#ffe47a", "#90ddff", "#c7a2ff"];
+  colors.forEach((color, offset) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(platform.x, platform.y + offset * 7);
+    ctx.lineTo(platform.x + platform.w, platform.y + offset * 7);
+    ctx.stroke();
+  });
+  ctx.fillStyle = index === 4 ? "#fff3ae" : "rgba(255, 255, 255, 0.7)";
+  ctx.fillRect(platform.x, platform.y - 5, platform.w, 8);
+}
+
+function moonGridMetrics(m) {
+  const cell = Math.min(m.w * 0.1, m.h * 0.13);
+  const width = cell * 6;
+  const height = cell * 5;
+  return { cell, x: (m.w - width) / 2, y: (m.h - height) / 2 + 30 };
+}
+
+function moonCellCenter(grid, col, row) {
+  return { x: grid.x + col * grid.cell + grid.cell / 2, y: grid.y + row * grid.cell + grid.cell / 2 };
+}
+
+function isMoonWall(fromCol, fromRow, toCol, toRow) {
+  const walls = new Set(["1,0-1,1", "2,1-3,1", "3,2-3,3", "0,2-1,2", "4,3-5,3", "2,3-2,4"]);
+  const a = `${fromCol},${fromRow}-${toCol},${toRow}`;
+  const b = `${toCol},${toRow}-${fromCol},${fromRow}`;
+  return walls.has(a) || walls.has(b);
+}
+
+function drawMoonMaze(grid) {
+  ctx.fillStyle = "rgba(255, 255, 255, 0.11)";
+  ctx.fillRect(grid.x, grid.y, grid.cell * 6, grid.cell * 5);
+  ctx.strokeStyle = "rgba(255, 241, 168, 0.7)";
+  ctx.lineWidth = 3;
+  for (let col = 0; col <= 6; col += 1) {
+    ctx.beginPath();
+    ctx.moveTo(grid.x + col * grid.cell, grid.y);
+    ctx.lineTo(grid.x + col * grid.cell, grid.y + grid.cell * 5);
+    ctx.stroke();
+  }
+  for (let row = 0; row <= 5; row += 1) {
+    ctx.beginPath();
+    ctx.moveTo(grid.x, grid.y + row * grid.cell);
+    ctx.lineTo(grid.x + grid.cell * 6, grid.y + row * grid.cell);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = "#ff9ccc";
+  ctx.lineWidth = 8;
+  [[1, 0, 1, 1], [2, 1, 3, 1], [3, 2, 3, 3], [0, 2, 1, 2], [4, 3, 5, 3], [2, 3, 2, 4]].forEach(([a, b, c, d]) => {
+    const start = moonCellCenter(grid, a, b);
+    const end = moonCellCenter(grid, c, d);
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
+  });
+}
+
+function drawCandy(x, y, r) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(Math.PI / 4);
+  ctx.fillStyle = "#ff9ccc";
+  ctx.fillRect(-r, -r, r * 2, r * 2);
+  ctx.fillStyle = "#fff1a8";
+  ctx.fillRect(-r * 0.32, -r, r * 0.64, r * 2);
+  ctx.restore();
+}
+
+function drawMiniHud(title, score, help, m) {
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.94)";
+  ctx.font = "800 24px system-ui, sans-serif";
+  ctx.fillText(title, m.w / 2, 38);
+  ctx.font = "700 15px system-ui, sans-serif";
+  ctx.fillText(`${score}   ${help}`, m.w / 2, 62);
+}
+
+function drawMiniGameOver(m, message) {
+  ctx.fillStyle = "rgba(8, 12, 20, 0.58)";
+  ctx.fillRect(0, 0, m.w, m.h);
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "800 40px system-ui, sans-serif";
+  ctx.fillText(message, m.w / 2, m.h / 2 - 8);
+  ctx.font = "700 17px system-ui, sans-serif";
+  ctx.fillText("按重新開始再玩一次，或回到選單", m.w / 2, m.h / 2 + 28);
 }
 
 function drawSky(m) {
@@ -515,7 +930,7 @@ gameCards.forEach((card) => {
       return;
     }
 
-    menuMessage.textContent = `${card.querySelector("strong").textContent} 還在雲朵工廠準備中`;
+    startMiniGame(card.dataset.game);
   });
 });
 
